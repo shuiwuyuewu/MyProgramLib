@@ -5,7 +5,7 @@
 Shui::CLog::CLog()
 	:m_fp(NULL)
 {
-	m_fp = fopen("zLog.txt", "w+");
+	errno_t err = fopen_s(&m_fp, "zLog.txt", "w+");
 }
  
  
@@ -26,33 +26,29 @@ Shui::CLog* Shui::CLog::GetInstance()
  
 int Shui::CLog::Print(const char* type, const char* format, ...)
 {
+	CAutoLock l(m_lock);
+
 	int ret = 0;
  
 	time_t now = time(0);
-	struct tm* now_tm;
+	struct tm now_tm;
  
-	now_tm = gmtime(&now);
-	if (now_tm == NULL)
+	errno_t err = gmtime_s(&now_tm, &now);
+	if (err == EINVAL)
 	{
 		return 2;
 	}
  
-	char buf[24];
+	char buf[126];
  
-	sprintf(buf, "%d-%02d-%02d %02d:%02d:%02d", now_tm->tm_year + 1900, now_tm->tm_mon + 1
-		, now_tm->tm_mday, now_tm->tm_hour, now_tm->tm_min, now_tm->tm_sec);
- 
-	std::string head(buf);
-	head.append(" [");
-	head.append(type);
-	head.append("]: ");
-	head.append(format);
+	sprintf_s(buf, "%d-%02d-%02d %02d:%02d:%02d [%s]: %s", now_tm.tm_year + 1900, now_tm.tm_mon + 1
+		, now_tm.tm_mday, now_tm.tm_hour, now_tm.tm_min, now_tm.tm_sec, type, format);
  
 	va_list argptr;
 	va_start(argptr, format);
 	if (m_fp != NULL)
 	{
-		vfprintf(m_fp, head.c_str(), argptr);
+		vfprintf(m_fp, buf, argptr);
 		fprintf(m_fp, "\n");
 	}
 	else
@@ -63,3 +59,4 @@ int Shui::CLog::Print(const char* type, const char* format, ...)
  
 	return ret;
 }
+
